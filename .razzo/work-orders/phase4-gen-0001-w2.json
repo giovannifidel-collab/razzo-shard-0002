@@ -1,0 +1,12 @@
+{
+  "schema": "razzo.homo-novus.phase4-work.v1",
+  "execution_id": "phase4-gen-0001-exec-0002",
+  "work_item_id": "phase4-gen-0001-w2",
+  "project_id": "homo-novus-control-plane",
+  "generation_id": "phase4-gen-0001",
+  "source_repository": "giovannifidel-collab/pfarma-ci",
+  "input_sha": "e08cece2e45fb548df70dda01ec1d089b3917299",
+  "target_path": "razzo/super_factory/run-phase3.ps1",
+  "collision_domain": "phase4/phase3-runner",
+  "idempotency_key": "phase4-gen-0001-w2-e08cece2"
+}
