@@ -1,0 +1,65 @@
+name: Closure Review PF MC-04
+on:
+  push:
+    paths:
+      - '.github/workflows/closure-review-pf-mc04.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PRIVATE_TOKEN: ${{ secrets.RAZZO_PRIVATE_REPO_TOKEN }}
+      EXACT_SHA: 60777d2723cdd5acbe8f384bfcfbda64fcd7bdb7
+    steps:
+      - name: Fail closed without checkout credential
+        run: '[ -n "$PRIVATE_TOKEN" ] || exit 78'
+      - uses: actions/checkout@v4
+        with:
+          repository: giovannifidel-collab/pfarma-cloud
+          ref: 60777d2723cdd5acbe8f384bfcfbda64fcd7bdb7
+          token: ${{ secrets.RAZZO_PRIVATE_REPO_TOKEN }}
+          persist-credentials: false
+          fetch-depth: 1
+          path: private-source
+      - name: Exact SHA verify
+        working-directory: private-source
+        run: test "$(git rev-parse HEAD)" = "$EXACT_SHA"
+      - name: Independent structural review
+        working-directory: private-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'CREATE TABLE IF NOT EXISTS users' api/operational_store.py
+          grep -q 'CREATE TABLE IF NOT EXISTS products' api/operational_store.py
+          grep -q 'CREATE TABLE IF NOT EXISTS stock_movements' api/operational_store.py
+          grep -q 'CREATE TABLE IF NOT EXISTS audit_events' api/operational_store.py
+          grep -q 'audit_events_no_update' api/operational_store.py
+          grep -q 'audit_events_no_delete' api/operational_store.py
+          grep -q 'idempotency_key conflicts' api/operational_store.py
+          grep -q 'unsupported operational schema versions' api/operational_store.py
+      - name: Delta Robot R01-R03
+        working-directory: private-source
+        run: python -m unittest -v tests.test_operational_store
+      - name: Cumulative Product CI and Robot simulation
+        working-directory: private-source
+        run: |
+          python -m unittest discover -s tests -p 'test_*.py'
+          python -m unittest -v factory.test_razzo_executor
+      - name: Emit receipt
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p receipt
+          cat > receipt/review.json <<EOF
+          {"schema":"razzo.independent-review.v1","project":"pfarma-cloud","macrocycle":"MC-04","exactSha":"60777d2723cdd5acbe8f384bfcfbda64fcd7bdb7","runId":"${GITHUB_RUN_ID}","conclusion":"${{ job.status }}","reviewContext":"razzo-shard-0002","checks":["exact-sha","independent-structural-review","delta-robot-r01-r03","cumulative-product-ci","factory-robot-replay"]}
+          EOF
+          cat receipt/review.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pf-mc04-independent-review-${{ github.run_id }}
+          path: receipt/review.json
+          retention-days: 14
